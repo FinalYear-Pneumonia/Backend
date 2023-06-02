@@ -17,7 +17,7 @@ from flask_mail import Message
 from  sqlalchemy import select
 User = userModel.User
 user_ns = Namespace("user", description="User Authentications")
-from API.users.schema import UserNewLoad, UserNewDump, UserLoginLoad, UserLoginDump, UserUpdate,UsersDump, searchLoad, UserPasswordUpdate
+from API.users.schema import UserNewLoad, UserNewDump, UserLoginLoad, UserLoginDump, UserUpdate,UsersDump, UserPasswordUpdate
 
 api = Api()
 
@@ -40,19 +40,30 @@ class SignUP(Resource):
         #get user response
         data = request.get_json()
         email = data.get('email')
+        confirm_password = data.get('confirm-password')
+        password = data.get("password")
+        contact = data.get("contact")
+        username = data.get("username")
         
         #check if already in database
         db_user = User.query.filter_by(email=email).first() 
         if db_user:
             abort(HTTP_409_CONFLICT, {"message": f"User with email {email} already exist"})
            
-        
-        new_user = userModel.User(**data)            
-        userModel.User.save(new_user)
-        db_user = User.query.filter_by(email=email).first()            
-        new_user_mail(db_user, db_user.public_id)
-            
-        return  new_user, HTTP_200_OK#jsonify({"message": "done!"})
+        if password == confirm_password:
+            new_user = User(
+            email=email,
+            password=generate_password_hash(password),
+            contact=contact,
+            username=username
+        )
+            userModel.User.save(new_user)
+            db_user = User.query.filter_by(email=email).first()            
+            new_user_mail(db_user, db_user.public_id)
+                
+            return  new_user, HTTP_200_OK#jsonify({"message": "done!"})
+        else:
+            return jsonify({"message": "Password do not match"})
             
     
 @user_ns.route("/login")
@@ -147,8 +158,6 @@ class UserResource(Resource):
         user_to_update.update_user(
                         username=data.get('username'),
                         email=data.get('email'),
-                        surname=data.get('surname'),
-                        other_name=data.get('other_name'),
                         contact=data.get('contact'),
                         )
         msg = Message('Account Update', recipients=[data.get('email')])
@@ -182,10 +191,9 @@ def new_user_mail(user, user_id):
     email = str(user.email)
     username = user.username
     password = user.password           
-    qualification= user.qualification
     msg = Message('SignUp Account', recipients=[email])
-    link = f"https://frontend-team-legacy-health-service.vercel.app/{qualification}Login"
-    msg.body = f"<p><h2>Account Created Successfully</h2><br>You have successfully registered as a {qualification}.<br>Your Special Identification Number, Username and Password are given below.<br><b>Identification Number:&nbsp;&nbsp; {user_id}</b><br><b>Username:&nbsp;&nbsp;{username}</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Password:&nbsp;&nbsp;{password}</b><br><b>Please ensure that you note it down as you will use for login.</b><br>Click on link to go to the Login page. <a href={link}>Click Here</a></p>"
+    link = f"https://frontend-team-legacy-health-service.vercel.app/Login"
+    msg.body = f"<p><h2>Account Created Successfully</h2><br>You have successfully registered as a .<br>Your Special Identification Number, Username and Password are given below.<br><b>Identification Number:&nbsp;&nbsp; {user_id}</b><br><b>Username:&nbsp;&nbsp;{username}</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Password:&nbsp;&nbsp;{password}</b><br><b>Please ensure that you note it down as you will use for login.</b><br>Click on link to go to the Login page. <a href={link}>Click Here</a></p>"
     mail.send(msg)
     
 def  deleted_user_mail(user):
@@ -197,27 +205,3 @@ def  deleted_user_mail(user):
 
 
 
-@user_ns.route('/search')
-class SearchResource(Resource):
-    @user_ns.marshal_list_with(UsersDump)
-    @user_ns.expect(searchLoad)
-    def post(self):
-        data = request.get_json()
-        substr = data.get('data')
-        column = data.get('column_name')
-        stri = f"%{substr}%"
-
-        if column == 'username':
-            response = User.query.filter(User.username.like(stri)).all()
-        elif column == 'surname':
-            response = User.query.filter(User.surname.like(stri)).all()
-        elif column == 'other_name':
-            response = User.query.filter(User.other_name.like(stri)).all()
-        elif column == 'email':
-            response = User.query.filter(User.email.like(stri)).all()
-        elif column == 'address':
-            response = User.query.filter(User.address.like(stri)).all()
-        else:
-            return abort(HTTP_400_BAD_REQUEST, "No such column")
-
-        return response, HTTP_200_OK

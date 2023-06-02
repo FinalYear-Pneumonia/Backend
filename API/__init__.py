@@ -26,7 +26,8 @@ def create_application(config_object):
     
 
     with app.app_context():
-        database.create_all()
         database.drop_all()
+        database.create_all()
+        
 
     return app
