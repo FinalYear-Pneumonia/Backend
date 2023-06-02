@@ -1,0 +1,6 @@
+This is the complete documentation for the backend of the project: Artificially Intelligent Diagnostic system for Pneumonia.
+The framework used for the backend is FLASK.
+For the Database, we used POSTGRESQL.
+
+The backend consists of the AI model, Database(Models) used.
+The AI model consists of Xray imaging and Symptoms classification for the Pneumonia Disease.
